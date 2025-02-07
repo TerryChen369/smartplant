@@ -3,18 +3,25 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <BH1750.h>
-#define WIFI_SSID "tzu"
-#define WIFI_PASSWORD "0903015157"
-#define MQTT_SERVER "192.168.50.114"
+
+// 請填入您的 WiFi 資訊
+#define WIFI_SSID "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+
+// 請填入您的 MQTT 伺服器資訊
+#define MQTT_SERVER "YOUR_MQTT_SERVER_IP"
 #define MQTT_PORT 1883
-#define MQTT_USERNAME "ee"
-#define MQTT_PASSWORD "123456ncnuee"
+#define MQTT_USERNAME "YOUR_MQTT_USERNAME"
+#define MQTT_PASSWORD "YOUR_MQTT_PASSWORD"
+
+// 定義 MQTT Topic
 #define MQTT_TOPIC "homeassistant/sensor/bme280"
 #define MQTT_TOPIC_1 "homeassistant/sensor/soil_moisture"
 #define MQTT_TOPIC_2 "homeassistant/sensor/bh1750"
 #define MQTT_SWITCH_TOPIC "homeassistant/switch/led"
 #define MQTT_SWITCH_TOPIC_1 "homeassistant/switch/fan"
 #define MQTT_SWITCH_TOPIC_2 "homeassistant/switch/pump"
+
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -29,6 +36,7 @@ int soilMoistureValue = 0;
 int switchPin_led = 2;
 int switchPin_fan= 12;
 int switchPin_pump= 13;
+
 void setup() {
   Serial.begin(115200);
   pinMode(switchPin_led, OUTPUT);
@@ -37,6 +45,7 @@ void setup() {
   digitalWrite(switchPin_fan, LOW);
   pinMode(switchPin_pump, OUTPUT);
   digitalWrite(switchPin_pump, LOW);
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -65,7 +74,6 @@ void setup() {
   }
 
   Serial.println("Connected to WiFi and MQTT broker");
-
 }
 
 void loop() {
@@ -76,6 +84,7 @@ void loop() {
   float pressure = bme.readPressure() / 100.0F;
   float light = bh.readLightLevel();
   soilMoistureValue = ((analogRead(soilMoisturePin))/1023)*100;
+
   Serial.print("Temperature: ");
   Serial.print(temperature);
   Serial.println(" *C");
@@ -91,16 +100,12 @@ void loop() {
   Serial.print("Light: ");
   Serial.print(light);
   Serial.println(" lx");
-  if (mqttClient.connected()) {
-    String temperatureString = String(temperature);
-    String humidityString = String(humidity);
-    String soilmoistureString = String(soilMoistureValue);
-    String lightString = String(light);
 
-    mqttClient.publish(MQTT_TOPIC "/temperature", temperatureString.c_str());
-    mqttClient.publish(MQTT_TOPIC "/humidity", humidityString.c_str());
-    mqttClient.publish(MQTT_TOPIC_1 "/moisture", soilmoistureString.c_str());
-    mqttClient.publish(MQTT_TOPIC_2 "/light", lightString.c_str());
+  if (mqttClient.connected()) {
+    mqttClient.publish(MQTT_TOPIC "/temperature", String(temperature).c_str());
+    mqttClient.publish(MQTT_TOPIC "/humidity", String(humidity).c_str());
+    mqttClient.publish(MQTT_TOPIC_1 "/moisture", String(soilMoistureValue).c_str());
+    mqttClient.publish(MQTT_TOPIC_2 "/light", String(light).c_str());
     Serial.println("Sensor data published to MQTT broker");
     delay(1000);
     mqttReconnect();
@@ -113,36 +118,15 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("] ");
   
-  // 設定 Relay 開關控制的訂閱 Topic 名稱
   if (strcmp(topic, MQTT_SWITCH_TOPIC) == 0) {
-    if ((char)payload[0] == '1') {
-      digitalWrite(switchPin_led, HIGH);      
-      Serial.println("Switch Turn On");
-    }
-      else if ((char)payload[0] == '0') {
-      digitalWrite(switchPin_led, LOW);     
-      Serial.println("Switch Turn Off");
-    }}
+    digitalWrite(switchPin_led, (char)payload[0] == '1' ? HIGH : LOW);
+  }
   if (strcmp(topic, MQTT_SWITCH_TOPIC_1) == 0) {
-     if ((char)payload[0] == '2') {
-      digitalWrite(switchPin_fan, LOW);     
-      Serial.println("Switch Turn Off");
-    }
-       else if ((char)payload[0] == '3') {
-      digitalWrite(switchPin_fan, HIGH);     
-      Serial.println("Switch Turn On");
-    }
- }
-   if (strcmp(topic, MQTT_SWITCH_TOPIC_2) == 0) {
-     if ((char)payload[0] == '4') {
-      digitalWrite(switchPin_pump, LOW);     
-      Serial.println("Switch Turn Off");
-    }
-       else if ((char)payload[0] == '5') {
-      digitalWrite(switchPin_pump, HIGH);     
-      Serial.println("Switch Turn On");
-    }
- }
+    digitalWrite(switchPin_fan, (char)payload[0] == '3' ? HIGH : LOW);
+  }
+  if (strcmp(topic, MQTT_SWITCH_TOPIC_2) == 0) {
+    digitalWrite(switchPin_pump, (char)payload[0] == '5' ? HIGH : LOW);
+  }
 }
 
 void mqttReconnect() {
